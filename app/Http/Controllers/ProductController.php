@@ -15,7 +15,10 @@ class ProductController extends Controller
     public function index()
     {
         $user_id= auth()->user()->id;
-        $products = Product::where('user_id', $user_id)->get();
+        $products = Product::where('user_id', $user_id)->get()->map(function ($product) {
+            $product->banner_image = $product->banner_image ? asset("storage/" . $product->banner_image) : null;
+            return $product;
+        });
         return response()->json([
             'status' => true,
             'message' => 'Products retrieved successfully',
@@ -26,37 +29,36 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      */
+    
     public function store(Request $request)
-{
-    // Validate request data
-    $request->validate([
-        'title' => 'required|string|max:255',
-        'banner_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
-    ]);
-
-    // Prepare the data
-    $data = [
-        'title' => $request->title,
-        'user_id' => auth()->id(),
-    ];
-
-    // Handle image upload
-    if ($request->hasFile('banner_image')) {
-        $data['banner_image'] = $request->file('banner_image')->store('products', 'public');
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'cost' => 'required|numeric',
+            'banner_image' => 'nullable|file|image|max:2048'
+        ]);
+    
+        $data = [
+            'user_id' => auth()->id(),
+            'title' => $request->title,
+            'description' => $request->description,
+            'cost' => $request->cost,
+        ];
+    
+        if ($request->hasFile('banner_image')) {
+            $data['banner_image'] = $request->file('banner_image')->store('products', 'public');
+        }
+    
+        $product = Product::create($data);
+    
+        return response()->json([
+            'status' => true,
+            'message' => 'Product created successfully',
+            'product' => $product
+        ], 201);
     }
-
-    // Save to database (assuming Product model)
-    $product = Product::create($data);
-
-    // Return response
-    return response()->json([
-        'status' => true,
-        'message' => 'Product created successfully',
-        'product' => $product
-    ], 201);
-}
-
-
+    
     /**
      * Display the specified resource.
      */
@@ -79,6 +81,8 @@ class ProductController extends Controller
         'title' => 'required|string|max:255',
         'banner_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
     ]);
+    $data['description'] = isset($request->description) ? $request->description : $product->description;
+    $data['cost'] = isset($request->cost) ? $request->cost : $product->cost;
 
     $data = [
         'title' => $request->title,
